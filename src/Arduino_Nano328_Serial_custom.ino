@@ -87,10 +87,10 @@ int readRotaryEncoder(unsigned char numInputBytes, unsigned char* input, unsigne
 	*numResponseBytes = sizeof(newPosition); */
 
 		long newPosition = myEnc.read();
-		
-		response[0] = (unsigned char) newPosition;
+		delay(50);
+
+		response[0] = (unsigned char) (newPosition / 4);
 		*numResponseBytes = sizeof(newPosition);
-	 
 
 	return 0;
 }
