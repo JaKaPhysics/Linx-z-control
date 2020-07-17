@@ -41,25 +41,28 @@ int readRotaryEncoder();
 int writeLCD_line0();
 int writeLCD_line1();
 
+long oldPosition = -999;
+long newPosition;
+
 //Initialize LINX Device And Listener
 void setup()
 {
-  //Instantiate The LINX Device
-  LinxDevice = new LinxArduinoNano328();
-  
-  //The LINXT Listener Is Pre Instantiated, Call Start And Pass A Pointer To The LINX Device And The UART Channel To Listen On
-  LinxSerialConnection.Start(LinxDevice, 0);
+	//Instantiate The LINX Device
+	LinxDevice = new LinxArduinoNano328();
+	
+	//The LINXT Listener Is Pre Instantiated, Call Start And Pass A Pointer To The LINX Device And The UART Channel To Listen On
+	LinxSerialConnection.Start(LinxDevice, 0);
 
-  //Attach the custom command to the LINX Listener
-  //AttachCustomCommand(customCommandNumber, nameOfCustomCommand)
-  LinxSerialConnection.AttachCustomCommand(0, readRotaryEncoder);	// custom command 0
-  LinxSerialConnection.AttachCustomCommand(1, writeLCD_line0);  	// custom command 1
-  LinxSerialConnection.AttachCustomCommand(2, writeLCD_line1);  	// custom command 2
+	//Attach the custom command to the LINX Listener
+	//AttachCustomCommand(customCommandNumber, nameOfCustomCommand)
+	LinxSerialConnection.AttachCustomCommand(0, readRotaryEncoder);	// custom command 0
+	LinxSerialConnection.AttachCustomCommand(1, writeLCD_line0);  	// custom command 1
+	LinxSerialConnection.AttachCustomCommand(2, writeLCD_line1);  	// custom command 2
 
-  //Initialization of LCD display
-  lcd.init;                               	// LCD dimension: 16 characters, 2 lines
-  lcd.clear();                            	// clear display
-  lcd.backlight();							// activate backlight
+	//Initialization of LCD display
+	lcd.init();                               	// LCD dimension: 16 characters, 2 lines
+	lcd.clear();                            	// clear display
+	lcd.backlight();							// activate backlight
 }
 
 void loop()
@@ -92,8 +95,29 @@ int readRotaryEncoder(unsigned char numInputBytes, unsigned char* input, unsigne
 	long newPosition = myEnc.read();						// read encoder position
 	delay(50);												// wait
 
-	response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
-	*numResponseBytes = sizeof(newPosition);				// sends back the size (in bytes) of the response
+	if (newPosition =! oldPosition)							// check if position changed
+	{
+		if (newPosition > oldPosition)						// check if step up
+		{
+			oldPosition = newPosition;
+			response[0] = (unsigned char) 2;
+		}
+		if (newPosition < oldPosition)						// check if step down
+		{
+			oldPosition = newPosition;
+			response[0] = (unsigned char) 1;
+		}
+	}
+	if (newPosition == oldPosition)							
+	{
+		oldPosition = newPosition;
+		response[0] = (unsigned char) 0;
+	}
+	
+	*numResponseBytes = 1;
+	
+	//response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
+	//*numResponseBytes = sizeof(newPosition);				// sends back the size (in bytes) of the response
 
 	return 0;												// return value is used for error handling
 }
