@@ -114,7 +114,7 @@ int readRotaryEncoder(unsigned char numInputBytes, unsigned char* input, unsigne
 		response[0] = (unsigned char) 0;
 	}
 	
-	*numResponseBytes = 1; */
+	*numResponseBytes = sizeof(response[0]); */
 	
 	response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
 	*numResponseBytes = sizeof(newPosition);				// sends back the size (in bytes) of the response
