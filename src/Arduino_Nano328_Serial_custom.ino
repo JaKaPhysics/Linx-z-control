@@ -18,6 +18,10 @@
 #include <Encoder.h>
 #include <LiquidCrystal_I2C.h>
 
+//Iclude some c++ libraries
+#include <stdio.h>
+#include <stdlib.h>
+
 //Include Device Specific Header From Sketch>>Import Library (In This Case LinxChipkitMax32.h)
 //Also Include Desired LINX Listener From Sketch>>Import Library (In This Case LinxSerialListener.h)
 #include <LinxArduinoNano328.h>
@@ -114,11 +118,24 @@ int readRotaryEncoder(unsigned char numInputBytes, unsigned char* input, unsigne
 		response[0] = (unsigned char) 0;
 	}
 	
-	*numResponseBytes = sizeof(response[0]); */
+	*/
 	
-	response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
-	//*numResponseBytes = sizeof(newPosition);				// sends back the size (in bytes) of the response
-	*numResponseBytes = 1;
+	// response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
+	// *numResponseBytes = 1;									// sends back the size (in bytes) of the response
+	
+	/* long har = (newPosition / 4);
+
+	response[0] = har & 0xff;
+	response[1] = (har>>8)  & 0xff;
+	response[2] = (har>>16) & 0xff;
+	response[3] = (har>>24) & 0xff;
+
+	*numResponseBytes = 4; */
+
+	float newPos = (newPosition / 4);
+
+	*numResponseBytes = sizeof(float);
+	memcpy(response, &newPos, sizeof(float));
 
 	return 0;												// return value is used for error handling
 }
