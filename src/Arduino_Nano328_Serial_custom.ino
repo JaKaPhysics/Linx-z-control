@@ -80,7 +80,7 @@ void setup()
 	LinxSerialConnection.AttachCustomCommand(1, writeLCD_line0);  	// custom command 1
 	LinxSerialConnection.AttachCustomCommand(2, writeLCD_line1);  	// custom command 2
 	LinxSerialConnection.AttachCustomCommand(3, read_temp); 		// custom command 3
-	LinxSerialConnection.AttachCustomCommand(4, read_humidity); 		// custom command 4
+	LinxSerialConnection.AttachCustomCommand(4, read_humidity); 	// custom command 4
 
 	//Initialization of LCD display
 	lcd.init();                               	// LCD dimension: 16 characters, 2 lines
@@ -186,9 +186,12 @@ int read_temp(unsigned char numInputBytes, unsigned char* input, unsigned char* 
 		input[i] = byte(input[i]);
 	}
 
+	//sensors.requestTemperatures();
+	//sensors.setResolution(10);
 	float temp = sensors.getTempCByIndex(0);			// read temperature from 18B20
 
 	memcpy(response, &temp, sizeof(float));
+	*numResponseBytes = sizeof(response);
 }
 
 /************************************** Custom command 4 ******************************************/
@@ -202,4 +205,5 @@ int read_humidity(unsigned char numInputBytes, unsigned char* input, unsigned ch
 	float humidity = dht.readHumidity();				// read humidity from DHT22
 
 	memcpy(response, &humidity, sizeof(float));
+	*numResponseBytes = sizeof(float);
 }
