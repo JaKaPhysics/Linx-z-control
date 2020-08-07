@@ -211,7 +211,14 @@ int read_humidity(unsigned char numInputBytes, unsigned char* input, unsigned ch
 	}
 
 	float humidity = dht.readHumidity();				// read humidity from DHT22
+	delay(1000);
 
-	memcpy(response, &humidity, sizeof(float));
-	*numResponseBytes = sizeof(float);
+	int res_inverse  = 8 ; 								// Multiply by 8 to get an int with a resolution of 0.125 
+	signed int int_to_send = humidity * res_inverse ; 		// with input_value  =  -55.625 and res_inverse = 8, this is -445, or in bits: '1111 1110'  '0100 0011' => High byte: '254', low byte '67' 
+	unsigned int value = int_to_send;    				// Make the value an unsigned integer, to shift 0 in from the left, instead of ones.
+
+	*numResponseBytes = 3;
+	response[0] = (value & 0xFF00) >> 8;   //mask all but MSB, shift 8 bits to the right; // to test: try B10101010 ; // default: MSB
+	response[1] = (value & 0x00FF);        //mask top bits, no need to shift; // to test: try B11001100 ; // default: LSB
+	response[2] = byte (res_inverse & 0x00FF);
 }
