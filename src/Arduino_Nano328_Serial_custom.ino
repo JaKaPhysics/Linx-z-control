@@ -17,6 +17,9 @@
 #include <Servo.h>
 #include <Encoder.h>
 #include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+#include <OneWire.h> 
+#include <DallasTemperature.h>
 
 //Iclude some c++ libraries
 #include <stdio.h>
@@ -40,10 +43,24 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 	//   Low Performance:  neither pin has interrupt capability
 Encoder myEnc(2,3);
 
+// define used sensor type
+#define DHTTYPE DHT22
+
+// define used sensor pins
+#define ONE_WIRE_BUS 8 			// 18B20 pin
+#define DHTPIN 7 				// DHT22 pin
+
+OneWire oneWire(ONE_WIRE_BUS);
+DHT dht(DHTPIN, DHTTYPE);
+
+DallasTemperature sensors(&oneWire);
+
 //Forward declaration
 int readRotaryEncoder();
 int writeLCD_line0();
 int writeLCD_line1();
+int read_temp();
+int read_humidity();
 
 long oldPosition = -999;
 long newPosition;
@@ -62,11 +79,17 @@ void setup()
 	LinxSerialConnection.AttachCustomCommand(0, readRotaryEncoder);	// custom command 0
 	LinxSerialConnection.AttachCustomCommand(1, writeLCD_line0);  	// custom command 1
 	LinxSerialConnection.AttachCustomCommand(2, writeLCD_line1);  	// custom command 2
+	LinxSerialConnection.AttachCustomCommand(3, read_temp); 		// custom command 3
+	LinxSerialConnection.AttachCustomCommand(4, read_humidity); 	// custom command 4
 
 	//Initialization of LCD display
 	lcd.init();                               	// LCD dimension: 16 characters, 2 lines
 	lcd.clear();                            	// clear display
 	lcd.backlight();							// activate backlight
+
+	//Initialization of sensors
+	sensors.begin();							// 18B20	
+ 	dht.begin(); 								// DHT22
 }
 
 void loop()
@@ -99,43 +122,10 @@ int readRotaryEncoder(unsigned char numInputBytes, unsigned char* input, unsigne
 	long newPosition = myEnc.read();						// read encoder position
 	delay(50);												// wait
 
-	/* if (newPosition =! oldPosition)							// check if position changed
-	{
-		if (newPosition > oldPosition)						// check if step up
-		{
-			oldPosition = newPosition;
-			response[0] = (unsigned char) 2;
-		}
-		if (newPosition < oldPosition)						// check if step down
-		{
-			oldPosition = newPosition;
-			response[0] = (unsigned char) 1;
-		}
-	}
-	if (newPosition == oldPosition)							
-	{
-		oldPosition = newPosition;
-		response[0] = (unsigned char) 0;
-	}
-	
-	*/
-	
-	// response[0] = (unsigned char) (newPosition / 4);		// divide newPosition by 4 to get a step size of 1 
-	// *numResponseBytes = 1;									// sends back the size (in bytes) of the response
-	
-	/* long har = (newPosition / 4);
-
-	response[0] = har & 0xff;
-	response[1] = (har>>8)  & 0xff;
-	response[2] = (har>>16) & 0xff;
-	response[3] = (har>>24) & 0xff;
-
-	*numResponseBytes = 4; */
-
 	float newPos = (newPosition / 4);
 
 	*numResponseBytes = sizeof(float);
-	memcpy(response, &newPos, sizeof(float));
+	memcpy(response, &newPos, sizeof(float));				// copy newPos byte-wise to response
 
 	return 0;												// return value is used for error handling
 }
@@ -180,4 +170,55 @@ int writeLCD_line1(unsigned char numInputBytes, unsigned char* input, unsigned c
 
     *numResponseBytes = numInputBytes;                  	// sends back the size (in bytes) of the response
  	return 0;												// return value is used for error handling
+}
+
+/************************
+ ***  Sensor readout  ***
+************************/
+
+// added by Janosch Kappel
+
+/************************************** Custom command 3 ******************************************/
+int read_temp(unsigned char numInputBytes, unsigned char* input, unsigned char* numResponseBytes, unsigned char* response)
+{
+	for(int i=0; i<numInputBytes; i++)
+	{
+		input[i] = byte(input[i]);
+	}
+
+	sensors.requestTemperatures();
+	float temp = sensors.getTempCByIndex(0);			// read temperature from 18B20
+
+	int res_inverse  = 8 ; 								// Multiply by 8 to get an int with a resolution of 0.125 
+	signed int int_to_send = temp * res_inverse ; 		// with input_value  =  -55.625 and res_inverse = 8, this is -445, or in bits: '1111 1110'  '0100 0011' => High byte: '254', low byte '67' 
+	unsigned int value = int_to_send;    				// Make the value an unsigned integer, to shift 0 in from the left, instead of ones.
+
+	*numResponseBytes = 3;
+	response[0] = (value & 0xFF00) >> 8;   //mask all but MSB, shift 8 bits to the right; // to test: try B10101010 ; // default: MSB
+	response[1] = (value & 0x00FF);        //mask top bits, no need to shift; // to test: try B11001100 ; // default: LSB
+	response[2] = byte (res_inverse & 0x00FF);
+
+	// memcpy(response, &temp, sizeof(double));
+	// *numResponseBytes = sizeof(double);
+}
+
+/************************************** Custom command 4 ******************************************/
+int read_humidity(unsigned char numInputBytes, unsigned char* input, unsigned char* numResponseBytes, unsigned char* response)
+{
+	for(int i=0; i<numInputBytes; i++)
+	{
+		input[i] = byte(input[i]);
+	}
+
+	float humidity = dht.readHumidity();				// read humidity from DHT22
+	delay(1000);
+
+	int res_inverse  = 8 ; 								// Multiply by 8 to get an int with a resolution of 0.125 
+	signed int int_to_send = humidity * res_inverse ; 		// with input_value  =  -55.625 and res_inverse = 8, this is -445, or in bits: '1111 1110'  '0100 0011' => High byte: '254', low byte '67' 
+	unsigned int value = int_to_send;    				// Make the value an unsigned integer, to shift 0 in from the left, instead of ones.
+
+	*numResponseBytes = 3;
+	response[0] = (value & 0xFF00) >> 8;   //mask all but MSB, shift 8 bits to the right; // to test: try B10101010 ; // default: MSB
+	response[1] = (value & 0x00FF);        //mask top bits, no need to shift; // to test: try B11001100 ; // default: LSB
+	response[2] = byte (res_inverse & 0x00FF);
 }
